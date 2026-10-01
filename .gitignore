@@ -1,0 +1,13 @@
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+.kotlin/
+captures/
+# Never commit signing keys or a downloaded SDK AAR you are not licensed to redistribute.
+*.jks
+*.keystore
+app/libs/*.aar

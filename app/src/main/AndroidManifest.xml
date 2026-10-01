@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- INTERNET and AD_ID are merged from the SDK manifest. -->
+
+    <!--
+      Backup is allowed for the app's own data, but the SDK's state must never be
+      restored onto another installation: these rules exclude it.
+    -->
+    <application
+        android:name=".SampleApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/attrack_tracker_backup_rules"
+        android:fullBackupContent="@xml/attrack_tracker_backup_rules_legacy"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        tools:targetApi="31">
+
+        <!-- Client key: injected at build time, never committed. -->
+        <meta-data
+            android:name="kr.co.attrack.sdk.CLIENT_KEY"
+            android:value="${attrackClientKey}" />
+
+        <!--
+          The real launch Activity. singleTop so a second link while the app is
+          open arrives in onNewIntent instead of stacking another screen.
+        -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          SDK link bridge: receives verified App Links and forwards them to the
+          launch Activity above. The host must equal the endpoint compiled into
+          the SDK; the path is scoped to this package. Never add /api/trk/c/.
+        -->
+        <activity
+            android:name="kr.co.attrack.tracker.TrackerLinkActivity"
+            android:exported="true">
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="${attrackLinkScheme}"
+                    android:host="${attrackLinkHost}"
+                    android:pathPrefix="/l/${applicationId}/" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
