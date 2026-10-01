@@ -18,6 +18,7 @@ fun setting(name: String, env: String? = null, default: String = ""): String =
         ?: env?.let { System.getenv(it) }
         ?: default
 
+val applicationPackage = setting("attrack.packageName", "ATTRACK_PACKAGE_NAME")
 val attrackAppId = setting("attrack.appId", "ATTRACK_APP_ID")
 val attrackClientKey = setting("attrack.clientKey", "ATTRACK_CLIENT_KEY")
 val linkScheme = setting("attrack.linkScheme", default = "https")
@@ -29,14 +30,14 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "kr.co.attrack.sample"
+        applicationId = applicationPackage.ifBlank { "kr.co.attrack.template.unconfigured" }
         minSdk = 23
         targetSdk = 36
         versionCode = sampleVersionCode
         versionName = "1.0.$sampleVersionCode"
 
         buildConfigField("String", "ATTRACK_APP_ID", "\"$attrackAppId\"")
-        manifestPlaceholders["attrackClientKey"] = attrackClientKey
+        buildConfigField("String", "ATTRACK_CLIENT_KEY", "\"${attrackClientKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         manifestPlaceholders["attrackLinkScheme"] = linkScheme
         manifestPlaceholders["attrackLinkHost"] = linkHost
     }
@@ -80,18 +81,8 @@ android {
 }
 
 dependencies {
-    // The SDK comes from an AAR in app/libs when one is present; otherwise from
-    // the Maven artifact, which also brings Install Referrer and WorkManager.
-    val localAar = file("libs/attrack-tracker-${libs.versions.attrack.get()}.aar")
-    if (localAar.isFile) {
-        implementation(files(localAar))
-        implementation(libs.installreferrer)
-        implementation(libs.work.runtime)
-    } else {
-        implementation(libs.attrack.tracker)
-    }
-    implementation(libs.play.services.ads.identifier)
-
+    // Maven resolves Install Referrer, the Advertising ID library and WorkManager transitively.
+    implementation(libs.attrack.tracker)
     implementation(libs.activity.compose)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
@@ -101,3 +92,14 @@ dependencies {
 
     testImplementation(libs.junit)
 }
+
+// Reading/Syncing the template is allowed; building requires your own registered package.
+val validateAppPackage = tasks.register("validateAppPackage") {
+    doLast {
+        require(applicationPackage.matches(Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")) &&
+            applicationPackage !in setOf("kr.co.attrack.sample", "kr.co.attrack.template.unconfigured", "com.example.app")) {
+            "Set attrack.packageName (or ATTRACK_PACKAGE_NAME) to your own registered Android applicationId"
+        }
+    }
+}
+tasks.named("preBuild") { dependsOn(validateAppPackage) }

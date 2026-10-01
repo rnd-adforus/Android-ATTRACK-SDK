@@ -1,9 +1,9 @@
 # ATTRACK Android SDK — 시작하기
 
 ATTRACK Android SDK는 앱 설치와 앱 내 이벤트를 측정하고, Google Play 설치를
-귀속하며, 링크로 앱을 엽니다(설치 직후 첫 실행 포함). 이 문서는 SDK `0.5.0` 기준입니다.
+귀속하며, 링크로 앱을 엽니다(설치 직후 첫 실행 포함). 이 문서는 SDK `1.0.1` 기준입니다.
 
-[English](INTEGRATION_GUIDE.en.md) · [딥링크 상세](DEEP_LINKS.ko.md)
+[English](INTEGRATION_GUIDE.en.md) · [딥링크 상세](DEEP_LINKS.md)
 
 ## 시작하기 전에
 
@@ -16,8 +16,7 @@ ATTRACK Android SDK는 앱 설치와 앱 내 이벤트를 측정하고, Google P
 | Gradle | 사용하는 AGP 버전이 요구하는 버전 (예: AGP 8.9 → Gradle 8.11.1 이상) |
 | JDK (빌드) | 17 이상 |
 | Java / Kotlin | SDK는 Java 8 bytecode입니다. Java 앱과 Kotlin 1.9 이상 앱 모두 사용 가능 (SDK는 Kotlin 2.0.21로 빌드) |
-| 함께 설치되는 의존성 | Google Play Install Referrer 2.2, AndroidX WorkManager 2.10.5 |
-| Google 광고 ID 라이브러리 | `play-services-ads-identifier` 18.3.0 (`minSdk` 23 이상), `minSdk` 21~22 앱은 18.2.0 |
+| 함께 설치되는 의존성 | Google Play Install Referrer 2.2, Google Play services Ads Identifier 18.2.0, AndroidX WorkManager 2.10.5 (자동 다운로드) |
 | 네트워크 | HTTPS |
 
 앱별로 다음 값이 필요합니다.
@@ -29,63 +28,123 @@ ATTRACK Android SDK는 앱 설치와 앱 내 이벤트를 측정하고, Google P
 
 ## 1. SDK 추가
 
-앱 모듈의 `build.gradle.kts`에 의존성을 추가합니다.
+**SDK는 Nexus Maven 저장소에서 Gradle로 다운로드합니다.** 프로젝트의
+`settings.gradle.kts`에 아래 저장소를 추가하세요. 이미 `repositories` 블록이
+있다면 해당 블록에 `maven` 항목만 추가합니다. 이 URL은 SDK 다운로드용이며,
+설치·이벤트를 전송하는 운영 API 주소 `https://api.attrack.co.kr`와 다릅니다.
 
 ```kotlin
-dependencies {
-    implementation("kr.co.attrack:attrack-tracker:0.5.0")
-
-    // SDK가 Google 광고 ID를 읽기 위해 필요합니다. 유료 귀속에 필수입니다.
-    // minSdk 21~22 앱은 18.2.0을 사용하세요(18.3.0은 minSdk 23 이상).
-    implementation("com.google.android.gms:play-services-ads-identifier:18.3.0")
-}
-```
-
-SDK를 AAR 파일로 받은 경우 `attrack-tracker-0.5.0.aar`를 `app/libs`에 넣고,
-AAR에는 의존성이 포함되지 않으므로 직접 추가합니다.
-
-```kotlin
-dependencies {
-    implementation(files("libs/attrack-tracker-0.5.0.aar"))
-    implementation("com.android.installreferrer:installreferrer:2.2")
-    implementation("androidx.work:work-runtime:2.10.5")
-    implementation("com.google.android.gms:play-services-ads-identifier:18.3.0")
-}
-```
-
-## 2. Manifest 설정
-
-Client key를 `<meta-data>`로 추가하고, 설치의 추적 상태가 다른 설치로 복원되지
-않도록 SDK 백업 규칙을 지정합니다.
-
-```xml
-<application
-    android:dataExtractionRules="@xml/attrack_tracker_backup_rules"
-    android:fullBackupContent="@xml/attrack_tracker_backup_rules_legacy">
-
-    <meta-data
-        android:name="kr.co.attrack.sdk.CLIENT_KEY"
-        android:value="${attrackClientKey}" />
-</application>
-```
-
-키는 소스 코드에 넣지 말고 빌드 시 주입합니다.
-
-```kotlin
-android {
-    defaultConfig {
-        manifestPlaceholders["attrackClientKey"] =
-            providers.gradleProperty("ATTRACK_CLIENT_KEY").get()
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://nexus.adforus.com/repository/attrack/") }
     }
 }
 ```
 
-`INTERNET`, `AD_ID` 권한은 SDK manifest가 자동으로 추가합니다.
+앱 모듈의 `build.gradle.kts`에 의존성을 추가합니다. Gradle이 Maven에서 SDK와
+Install Referrer, 광고 ID, WorkManager 의존성을 함께 가져옵니다. 이 라이브러리들을
+직접 추가하지 마세요.
+
+```kotlin
+dependencies {
+    implementation("com.adforus.sdk:attrack:1.0.1")
+}
+```
+
+**다운로드 및 빌드 확인**
+
+Android Studio에서 Gradle Sync를 실행하거나 다음 명령을 실행합니다.
+
+```bash
+./gradlew :app:assembleDebug
+```
+
+Gradle이 `com.adforus.sdk:attrack:1.0.1`과 Install Referrer, 광고 ID 라이브러리,
+WorkManager를 자동으로 다운로드합니다. Nexus 로그인이나 SDK client key 없이 다운로드할 수
+있습니다. Client key는 다운로드 이후 앱에서 SDK를 초기화할 때 사용합니다.
+
+다운로드한 버전은 다음 명령의 의존성 목록에서 확인할 수 있습니다.
+
+```bash
+./gradlew :app:dependencies --configuration debugRuntimeClasspath
+```
+
+출력에서 `com.adforus.sdk:attrack:1.0.1`을 확인하세요. 다운로드 오류가 나면
+저장소 URL, 의존성 좌표, 네트워크 연결과 Gradle의 Offline Mode 설정을 확인합니다.
+템플릿을 빌드하는 경우 먼저 [README](../README.md#실행-방법)의 본인 패키지와
+앱 설정을 완료하세요.
+
+**앱에서 이미 이 라이브러리를 사용하는 경우**
+
+별도 조치가 필요 없습니다. 위 버전은 최소 버전입니다. 앱이나 다른 라이브러리가 더 높은
+버전을 요청하면 Gradle이 높은 버전 하나만 사용하므로 중복 클래스 오류가 생기지 않습니다.
+SDK 의존성에서 이 라이브러리를 exclude하거나 `AD_ID` 권한을 제거하지 마세요. 제거하면
+설치를 귀속할 수 없습니다.
+
+## 2. Manifest 설정
+
+추적 상태와 저장된 런타임 키가 다른 설치로 복원되지 않도록 SDK 백업 규칙을 지정합니다.
+
+```xml
+<application
+    android:dataExtractionRules="@xml/attrack_tracker_backup_rules"
+    android:fullBackupContent="@xml/attrack_tracker_backup_rules_legacy" />
+```
+
+**앱에 이미 백업 규칙 파일이 있다면** 기존 파일을 유지하고 SDK 제외 항목을 그 파일에
+추가하세요. 속성 하나에는 파일 하나만 지정할 수 있으며, 이 항목이 없으면 복원·이전된
+앱이 이전 기기의 설치 ID를 다시 사용합니다.
+
+```xml
+<!-- dataExtractionRules의 각 <cloud-backup>, <device-transfer> 안과
+     fullBackupContent의 <full-backup-content> 안에 추가: -->
+<exclude domain="sharedpref" path="kr.co.attrack.tracker.xml" />
+<exclude domain="file" path="attrack_tracker/" />
+```
+
+SDK 자체 manifest에 아래 권한이 선언되어 있어 Gradle의 manifest 병합 과정에서
+앱에 자동으로 포함됩니다.
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+```
+
+앱에서 다시 추가할 필요는 없습니다. 이미 같은 권한을 선언했다면 `android:name`이
+같은 항목은 하나로 병합되므로 충돌하지 않습니다. `AD_ID`는 일반 권한이어서 런타임
+권한 팝업이 없습니다. Android 13(API 33) 이상을 대상으로 하는 앱에서 광고 ID에
+접근할 때 필요합니다. Android Studio의 **Merged Manifest**에서 포함 여부와 앱의
+manifest override로 삭제되거나 제한되지 않았는지 확인하세요. Google Play Console의
+광고 ID 사용 신고와 개인정보 공개 내용에도 반영해야 합니다.
+
+[Android manifest 병합](https://developer.android.com/build/manage-manifests) ·
+[Google 광고 ID API 요구 사항](https://developers.google.com/android/reference/com/google/android/gms/ads/identifier/AdvertisingIdClient.Info)
 
 ## 3. SDK 초기화
 
-`Application.onCreate`에서 main process로 한 번 초기화합니다. 결과를 놓치지
-않도록 result listener를 먼저 설정합니다.
+`Application.onCreate`의 main process에서 앱의 App ID와 **현재 client key**를
+전달하여 한 번 초기화합니다. 결과를 놓치지 않도록 listener를 먼저 설정합니다.
+예시는 앱의 `BuildConfig` 필드를 사용합니다.
+
+```kotlin
+// app/build.gradle.kts; 개인 Gradle 설정에서 값을 가져옵니다.
+android {
+    buildFeatures { buildConfig = true }
+    defaultConfig {
+        buildConfigField("String", "ATTRACK_APP_ID", "\"${providers.gradleProperty("ATTRACK_APP_ID").get()}\"")
+        buildConfigField("String", "ATTRACK_CLIENT_KEY", "\"${providers.gradleProperty("ATTRACK_CLIENT_KEY").get()}\"")
+    }
+}
+```
+
+키를 소스 저장소에 커밋하지 마세요. `BuildConfig` 대신 앱의 런타임 설정에서 키를
+가져와도 됩니다. 키 교체 후 다음 프로세스 시작 시 새 키를 전달하면 SDK가 저장된
+키를 갱신하고 설치 ID와 대기 이벤트는 유지합니다. 실행 중인 프로세스는 초기화 때
+전달한 키를 사용하므로 새 설정을 받으면 프로세스를 재시작하세요. WorkManager가
+프로세스 종료 후 전송을 복구할 수 있도록 키를 백업에서 제외된 앱 전용 저장소에
+보관합니다. 앱에서 사용하는 키는 기기가 침해되면 추출될 수 있습니다.
 
 ```kotlin
 class MyApplication : Application() {
@@ -98,7 +157,7 @@ class MyApplication : Application() {
             }
         }
 
-        val start = Tracker.initializeWithResult(this, "app_611b8e8624cfc117300f4712")
+        val start = Tracker.initializeWithResult(this, BuildConfig.ATTRACK_APP_ID, BuildConfig.ATTRACK_CLIENT_KEY)
         if (!start.success) {
             Log.e("MyApp", "ATTRACK could not start: ${start.code}")
         }
@@ -109,7 +168,7 @@ class MyApplication : Application() {
 - `INITIALIZATION_STARTED`는 즉시 반환됩니다. 서버가 앱을 승인하면 이후 listener로
   `INITIALIZED`가 전달됩니다.
 - **설치 이벤트는 자동으로 전송**되므로 직접 기록하지 않습니다.
-- `Tracker.initialize(context, appId)`는 반환값이 없는 같은 호출이며, debug
+- `Tracker.initialize(context, appId, clientKey)`는 반환값이 없는 같은 호출이며, debug
   빌드에서는 설정 오류 시 예외를 던져 문제를 빨리 알려 줍니다.
 - Listener callback은 메인 스레드가 아닌 SDK worker thread에서 실행됩니다.
 
@@ -134,7 +193,8 @@ if (result.code == TrackerResultCode.EVENT_QUEUED) {
 - 선언된 파라미터는 모두 필수이며, 선언되지 않은 파라미터는 거부됩니다.
   타입: `string` → `String`, `number` → 유한한 `Number`, `bool` → `Boolean`.
 - 이벤트 이름: 1~40자, 영문자로 시작, 영문자·숫자·`_`만 사용, `firebase_`·
-  `google_`·`ga_`로 시작할 수 없음. 파라미터 크기: 최대 16 KiB.
+  `google_`·`ga_`로 시작할 수 없음. `install`은 SDK가 설치당 한 번 보내는 예약 이름입니다.
+  파라미터 크기: 최대 16 KiB.
 - 주문 ID·결제 ID 같은 자체 ID는 파라미터에 넣습니다. `transaction_id`는 SDK가 생성합니다.
 
 **전송.** 이벤트는 전송 전에 디스크에 저장되어 앱 재시작, 재부팅, 오프라인에도
@@ -187,7 +247,7 @@ Tracker.eventSchemaVersion()         // 첫 초기화 성공 전에는 빈 문�
 |---|---|---|
 | `INVALID_ARGUMENT` | `null` context 등 잘못된 인자 | 호출 코드 수정 |
 | `INVALID_APP_ID` | App ID 누락 또는 형식 오류 | 앱에 발급된 App ID 사용 |
-| `INVALID_CONFIGURATION` | Client key metadata 누락, 또는 다른 App ID로 두 번째 초기화 | Manifest 확인, 초기화는 한 번만 |
+| `INVALID_CONFIGURATION` | Client key 누락/오류 또는 충돌하는 재초기화 | 전달한 키 확인, 프로세스마다 한 번 초기화 |
 | `WRONG_PROCESS` | main process가 아닌 곳에서 초기화 | main process에서만 초기화 |
 | `NOT_INITIALIZED` | 초기화 전에 이벤트 기록 | 먼저 초기화 |
 | `INVALID_EVENT_NAME` | 이름 규칙 위반 | 이름 수정 |
@@ -217,8 +277,21 @@ SDK는 ATTRACK 링크(`https://api.attrack.co.kr/l/<package>/<linkId>`)로 앱�
 링크에 정의된 파라미터를 전달합니다. 앱이 설치되어 있지 않으면 사용자가 Google
 Play에서 설치한 뒤 첫 실행 시 같은 링크를 전달합니다(**지연** 링크).
 
-Manifest의 `<application>` 안에 **링크 Activity를 추가**합니다. `com.example.app`을
-실제 패키지명으로 바꾸세요.
+Manifest의 `<application>` 안에 **링크 Activity를 추가**합니다.
+`${applicationId}`는 Gradle이 설치되는 앱의 application ID로 자동 치환합니다.
+
+**“내 패키지 이름”은 설치되는 앱의 `applicationId`입니다.** 앱 모듈의
+`build.gradle.kts`에서 `defaultConfig { applicationId = "…" }`를 확인하세요.
+Google Play 앱 주소의 `id`와도 같은 값입니다. SDK 패키지 `kr.co.attrack.tracker`,
+Kotlin/Java 코드의 `namespace`, ATTRACK App ID(`app_…`)와는 다릅니다.
+
+예를 들어 본인 앱의 등록된 `applicationId`가 `com.yourcompany.yourapp`이면
+Gradle이 `/l/${applicationId}/`를 `/l/com.yourcompany.yourapp/`로 바꿉니다.
+실제 링크는 `https://api.attrack.co.kr/l/com.yourcompany.yourapp/LINK_ID` 형태입니다.
+빌드 variant의 suffix까지 포함하여 앱에 등록된 정확한 패키지를 사용하세요.
+패키지가 다르면 그 패키지에 맞는 별도 등록과 자격 증명이 필요합니다.
+`kr.co.attrack.tracker.TrackerLinkActivity`는 SDK 클래스이므로 바꾸지 않습니다.
+[Android application ID 안내](https://developer.android.com/build/configure-app-module)
 
 ```xml
 <activity
@@ -231,7 +304,7 @@ Manifest의 `<application>` 안에 **링크 Activity를 추가**합니다. `com.
         <data
             android:scheme="https"
             android:host="api.attrack.co.kr"
-            android:pathPrefix="/l/com.example.app/" />
+            android:pathPrefix="/l/${applicationId}/" />
     </intent-filter>
 </activity>
 ```
@@ -286,15 +359,17 @@ private fun handleLink(intent: Intent?) {
 기기에서 **테스트**합니다(실제 패키지명과 링크 ID 사용).
 
 ```bash
-adb shell pm verify-app-links --re-verify com.example.app
-adb shell pm get-app-links com.example.app
+APP_PACKAGE="com.yourcompany.yourapp"  # 본인 앱에 등록된 applicationId
+LINK_ID="YOUR_LINK_ID"
+adb shell pm verify-app-links --re-verify "$APP_PACKAGE"
+adb shell pm get-app-links "$APP_PACKAGE"
 adb shell am start -W -a android.intent.action.VIEW \
-  -d "https://api.attrack.co.kr/l/com.example.app/LINK_ID"
+  -d "https://api.attrack.co.kr/l/$APP_PACKAGE/$LINK_ID"
 ```
 
 지연 링크는 Google Play에서 실제로 설치해야 확인할 수 있습니다(예: 내부 테스트
 트랙). 직접 설치한 APK는 첫 실행에서 `NO_LINK`를 반환합니다. Java 코드, 제한,
-문제 해결은 [딥링크 상세](DEEP_LINKS.ko.md)를 참고하세요.
+문제 해결은 [딥링크 상세](DEEP_LINKS.md)를 참고하세요.
 
 ## 8. 설치 귀속 정보
 
@@ -335,7 +410,7 @@ Tracker.setResultListener(result -> {
         Log.w("MyApp", result.getCode() + ": " + result.getMessage());
     }
 });
-Tracker.initializeWithResult(getApplicationContext(), "app_611b8e8624cfc117300f4712");
+Tracker.initializeWithResult(getApplicationContext(), BuildConfig.ATTRACK_APP_ID, BuildConfig.ATTRACK_CLIENT_KEY);
 
 Map<String, Object> params = new HashMap<>();
 params.put("level", 3);
@@ -358,8 +433,8 @@ Logcat은 `attrack` 태그를 사용하며 `[EVENT_DELIVERED]`처럼 결과 코�
 
 | 메서드 | 반환 | 설명 |
 |---|---|---|
-| `initialize(context, appId)` | — | SDK 시작. debug 빌드는 설정 오류 시 예외 |
-| `initializeWithResult(context, appId)` | `TrackerResult` | SDK를 시작하고 즉시 결과 반환 |
+| `initialize(context, appId, clientKey)` | — | SDK 시작. debug 빌드는 설정 오류 시 예외 |
+| `initializeWithResult(context, appId, clientKey)` | `TrackerResult` | SDK를 시작하고 즉시 결과 반환 |
 | `setResultListener(listener)` | — | 모든 결과를 SDK worker thread에서 수신, `null`이면 해제 |
 | `logEvent(name, params)` | `String?` | 이벤트 저장, `transaction_id` 반환(거부 시 `null`) |
 | `logEventWithResult(name, params)` | `TrackerResult` | 엄격한 검사 후 저장, `EVENT_QUEUED` 또는 오류 코드 |
@@ -393,16 +468,7 @@ Logcat은 `attrack` 태그를 사용하며 `[EVENT_DELIVERED]`처럼 결과 코�
 
 **`PendingDynamicLinkData`**: `parameters`(링크 파라미터), `linkId`, `isDeferred`,
 `handoffId`(지연 링크 하나의 고정 키), `clickId`·`sender`(이 링크로 이어진 클릭,
-참고용), `link`. `trackingToken`은 내부 값이므로 log에 남기거나 수정하지 마세요.
+참고용), `link`.
 
 **`TrackerLinkActivity`**: 검증된 링크를 받는 SDK Activity. Manifest에 선언하며(7절)
 직접 실행하지 마세요.
-
-`TrackerDynamicLinks`, `DynamicLinkBuilder`는 기존 연동 호환용입니다.
-`handleDeepLink`를 사용하세요.
-
-## 0.4.x에서 마이그레이션
-
-- `Tracker.setAdvertisingConsent`, `Tracker.setDeviceDeduplicationConsent` 호출을
-  제거하세요. 두 메서드는 삭제되었으며 식별자는 항상 수집됩니다(9절).
-- 이에 맞게 데이터 보안 신고를 갱신하세요.

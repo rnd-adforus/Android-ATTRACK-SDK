@@ -2,9 +2,9 @@
 
 The ATTRACK Android SDK measures app installs and in-app events, attributes
 installs from Google Play, and opens your app from links, including the first
-open after an install. This guide covers SDK `0.5.0`.
+open after an install. This guide covers SDK `1.0.1`.
 
-[한국어](INTEGRATION_GUIDE.ko.md) · [Deep links in detail](DEEP_LINKS.md)
+[한국어](INTEGRATION_GUIDE.md) · [Deep links in detail](DEEP_LINKS.en.md)
 
 ## Before you begin
 
@@ -17,8 +17,7 @@ open after an install. This guide covers SDK `0.5.0`.
 | Gradle | The version your AGP requires (for example AGP 8.9 → Gradle 8.11.1 or higher) |
 | JDK (build) | 17 or higher |
 | Java / Kotlin | The SDK is Java 8 bytecode; works from Java apps and Kotlin 1.9+ apps (built with Kotlin 2.0.21) |
-| Included dependencies | Google Play Install Referrer 2.2, AndroidX WorkManager 2.10.5 |
-| Advertising ID library | `play-services-ads-identifier` 18.3.0 (`minSdk` 23+); apps on `minSdk` 21–22 use 18.2.0 |
+| Included dependencies | Google Play Install Referrer 2.2, Google Play services Ads Identifier 18.2.0, AndroidX WorkManager 2.10.5 (downloaded automatically) |
 | Network | HTTPS |
 
 You also need, for your app:
@@ -30,64 +29,128 @@ You also need, for your app:
 
 ## 1. Add the SDK
 
-Add the dependency to your app module's `build.gradle.kts`:
+**Download the SDK through Gradle from Nexus Maven.** Add the repository below
+to your project's `settings.gradle.kts`. If you already have a `repositories`
+block, add the `maven` entry there. This is the SDK download URL; tracking requests
+use the production API at `https://api.attrack.co.kr`.
 
 ```kotlin
-dependencies {
-    implementation("kr.co.attrack:attrack-tracker:0.5.0")
-
-    // Lets the SDK read the Google Advertising ID. Required for paid attribution.
-    // Apps on minSdk 21–22: use 18.2.0 (18.3.0 requires minSdk 23).
-    implementation("com.google.android.gms:play-services-ads-identifier:18.3.0")
-}
-```
-
-If you received the SDK as an AAR file, place `attrack-tracker-0.5.0.aar` in
-`app/libs` and add its dependencies yourself (an AAR does not carry them):
-
-```kotlin
-dependencies {
-    implementation(files("libs/attrack-tracker-0.5.0.aar"))
-    implementation("com.android.installreferrer:installreferrer:2.2")
-    implementation("androidx.work:work-runtime:2.10.5")
-    implementation("com.google.android.gms:play-services-ads-identifier:18.3.0")
-}
-```
-
-## 2. Update your manifest
-
-Add the client key as `<meta-data>` and reference the SDK's backup rules, which
-stop an installation's tracking state from being restored onto another
-installation.
-
-```xml
-<application
-    android:dataExtractionRules="@xml/attrack_tracker_backup_rules"
-    android:fullBackupContent="@xml/attrack_tracker_backup_rules_legacy">
-
-    <meta-data
-        android:name="kr.co.attrack.sdk.CLIENT_KEY"
-        android:value="${attrackClientKey}" />
-</application>
-```
-
-Keep the key out of source control and inject it at build time:
-
-```kotlin
-android {
-    defaultConfig {
-        manifestPlaceholders["attrackClientKey"] =
-            providers.gradleProperty("ATTRACK_CLIENT_KEY").get()
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://nexus.adforus.com/repository/attrack/") }
     }
 }
 ```
 
-The SDK's own manifest adds the `INTERNET` and `AD_ID` permissions.
+Add the dependency to your app module's `build.gradle.kts`. Gradle retrieves the
+SDK and its Install Referrer, Advertising ID and WorkManager dependencies from
+Maven. Do not add those libraries yourself:
+
+```kotlin
+dependencies {
+    implementation("com.adforus.sdk:attrack:1.0.1")
+}
+```
+
+**Download and verify**
+
+Run Gradle Sync in Android Studio, or build:
+
+```bash
+./gradlew :app:assembleDebug
+```
+
+Gradle downloads `com.adforus.sdk:attrack:1.0.1` plus Install Referrer, the
+Advertising ID library and WorkManager automatically. No Nexus login or SDK client key is required to
+download. The client key is used later when your app initializes the SDK.
+
+Check the resolved version in the dependency list:
+
+```bash
+./gradlew :app:dependencies --configuration debugRuntimeClasspath
+```
+
+Look for `com.adforus.sdk:attrack:1.0.1`. If downloading fails, check the exact
+repository URL, dependency coordinate, network connection and Gradle's Offline
+Mode setting. To build this repository's template, first complete your package
+and app configuration in the [README](../README.en.md#run-it).
+
+**If your app already uses these libraries**
+
+No action is needed. The versions above are minimums: when your app or another
+library requests a newer version, Gradle uses the newer one, so there is one copy
+and no duplicate-class error. Do not exclude them from the SDK dependency or remove
+the `AD_ID` permission; without them installs cannot be attributed.
+
+## 2. Update your manifest
+
+Reference the SDK's backup rules to prevent tracking state and the saved runtime
+key from being restored onto another installation:
+
+```xml
+<application
+    android:dataExtractionRules="@xml/attrack_tracker_backup_rules"
+    android:fullBackupContent="@xml/attrack_tracker_backup_rules_legacy" />
+```
+
+**If your app already has backup rules**, keep your own files and add the SDK's
+exclusions to them instead. An app can reference only one file per attribute, and
+without these lines a restored or transferred app reuses the previous device's
+installation identity:
+
+```xml
+<!-- In each <cloud-backup> and <device-transfer> section (dataExtractionRules),
+     and in <full-backup-content> (fullBackupContent): -->
+<exclude domain="sharedpref" path="kr.co.attrack.tracker.xml" />
+<exclude domain="file" path="attrack_tracker/" />
+```
+
+The SDK declares both permissions below in its own manifest. Gradle's manifest
+merger includes them in your app automatically:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+```
+
+You do not need to add them again. If your app already declares the same
+permissions, matching `android:name` entries merge into one declaration without
+a conflict. `AD_ID` is a normal permission, so there is no runtime permission
+dialog. It is required for Advertising ID access when targeting Android 13+
+(API 33+). Check Android Studio's **Merged Manifest** view to confirm it is
+present and has not been removed or limited by host manifest overrides. Declare
+Advertising ID use in Google Play Console and your privacy disclosures.
+
+See [Android manifest merging](https://developer.android.com/build/manage-manifests)
+and [Google's Advertising ID API requirements](https://developers.google.com/android/reference/com/google/android/gms/ads/identifier/AdvertisingIdClient.Info).
 
 ## 3. Initialize the SDK
 
-Initialize once, in your `Application.onCreate`, in the main process. Set the
-result listener first so no result is missed.
+Initialize once, in your `Application.onCreate`, in the main process. Pass your
+app's App ID **and current client key**. Set the result listener first so no
+result is missed. The example uses your app's `BuildConfig` fields:
+
+```kotlin
+// app/build.gradle.kts; properties come from your private Gradle configuration.
+android {
+    buildFeatures { buildConfig = true }
+    defaultConfig {
+        buildConfigField("String", "ATTRACK_APP_ID", "\"${providers.gradleProperty("ATTRACK_APP_ID").get()}\"")
+        buildConfigField("String", "ATTRACK_CLIENT_KEY", "\"${providers.gradleProperty("ATTRACK_CLIENT_KEY").get()}\"")
+    }
+}
+```
+
+Keep keys out of source control. You can also supply the key from your app's
+runtime configuration instead of `BuildConfig`. After a key rotation, supply
+the new key on the next process start; the SDK replaces its saved key and keeps
+the installation ID and pending events. A running process uses the key it was
+initialized with, so restart it after your configuration receives the new key.
+The SDK saves the key in private, backup-excluded app storage for WorkManager
+recovery. Like any credential used by an app, it is extractable on a compromised
+device; runtime initialization does not make it a server-side secret.
 
 ```kotlin
 class MyApplication : Application() {
@@ -100,7 +163,7 @@ class MyApplication : Application() {
             }
         }
 
-        val start = Tracker.initializeWithResult(this, "app_611b8e8624cfc117300f4712")
+        val start = Tracker.initializeWithResult(this, BuildConfig.ATTRACK_APP_ID, BuildConfig.ATTRACK_CLIENT_KEY)
         if (!start.success) {
             Log.e("MyApp", "ATTRACK could not start: ${start.code}")
         }
@@ -111,7 +174,7 @@ class MyApplication : Application() {
 - `INITIALIZATION_STARTED` is returned immediately. `INITIALIZED` arrives later on
   the listener, once the server has accepted your app.
 - The **install event is sent automatically**. You do not log it.
-- `Tracker.initialize(context, appId)` is the same call without a return value;
+- `Tracker.initialize(context, appId, clientKey)` is the same call without a return value;
   in debug builds it throws on a configuration error so mistakes surface early.
 - Listener callbacks run on the SDK's worker thread, not the main thread.
 
@@ -136,7 +199,8 @@ if (result.code == TrackerResultCode.EVENT_QUEUED) {
 - Every declared parameter is required; undeclared parameters are rejected.
   Types: `string` → `String`, `number` → finite `Number`, `bool` → `Boolean`.
 - Event names: 1–40 characters, start with a letter, letters/digits/`_` only, and
-  not starting with `firebase_`, `google_` or `ga_`. Parameters: up to 16 KiB.
+  not starting with `firebase_`, `google_` or `ga_`. `install` is reserved: the SDK
+  sends it once per installation. Parameters: up to 16 KiB.
 - Put your own IDs (order ID, payment ID) in parameters. The SDK creates the
   `transaction_id` itself.
 
@@ -191,7 +255,7 @@ Every `TrackerResult` has:
 |---|---|---|
 | `INVALID_ARGUMENT` | A `null` context or other invalid argument | Fix the call |
 | `INVALID_APP_ID` | Missing or malformed App ID | Use the App ID issued for your app |
-| `INVALID_CONFIGURATION` | Client key metadata missing, or a second `initialize` with a different App ID | Check the manifest and initialize once |
+| `INVALID_CONFIGURATION` | Client key missing/invalid, or conflicting initialization | Check the supplied key and initialize once per process |
 | `WRONG_PROCESS` | Initialized outside the main process | Initialize only in the main process |
 | `NOT_INITIALIZED` | Event logged before initialization | Initialize first |
 | `INVALID_EVENT_NAME` | Name breaks the naming rules | Fix the name |
@@ -222,8 +286,23 @@ and hands you the parameters defined for the link. If the app is not installed,
 the user installs it from Google Play and the SDK delivers the same link on the
 first open (a **deferred** link).
 
-**Add the link Activity** inside `<application>` in your manifest. Replace
-`com.example.app` with your package name:
+**Add the link Activity** inside `<application>` in your manifest. Use the
+built-in `${applicationId}` placeholder: Gradle replaces it with your installed
+app's application ID automatically.
+
+**“Your package name” means the installed app's `applicationId`** from your app
+module's `build.gradle.kts` (`defaultConfig { applicationId = "…" }`). It is also
+the `id` in your Google Play listing URL. It is not the SDK package
+`kr.co.attrack.tracker`, your Kotlin/Java `namespace`, or an ATTRACK App ID
+(`app_…`).
+
+For example, if your own registered `applicationId` is `com.yourcompany.yourapp`,
+Gradle expands `/l/${applicationId}/` to `/l/com.yourcompany.yourapp/`. Your link
+then looks like `https://api.attrack.co.kr/l/com.yourcompany.yourapp/LINK_ID`.
+Use the exact package registered for your app, including any build variant
+suffix; a different package needs its own matching registration and credentials.
+Keep `kr.co.attrack.tracker.TrackerLinkActivity` unchanged: that is an SDK class.
+See [Android application IDs](https://developer.android.com/build/configure-app-module).
 
 ```xml
 <activity
@@ -236,7 +315,7 @@ first open (a **deferred** link).
         <data
             android:scheme="https"
             android:host="api.attrack.co.kr"
-            android:pathPrefix="/l/com.example.app/" />
+            android:pathPrefix="/l/${applicationId}/" />
     </intent-filter>
 </activity>
 ```
@@ -292,15 +371,17 @@ private fun handleLink(intent: Intent?) {
 **Test** on a device (use your package and a real link ID):
 
 ```bash
-adb shell pm verify-app-links --re-verify com.example.app
-adb shell pm get-app-links com.example.app
+APP_PACKAGE="com.yourcompany.yourapp"  # your registered applicationId
+LINK_ID="YOUR_LINK_ID"
+adb shell pm verify-app-links --re-verify "$APP_PACKAGE"
+adb shell pm get-app-links "$APP_PACKAGE"
 adb shell am start -W -a android.intent.action.VIEW \
-  -d "https://api.attrack.co.kr/l/com.example.app/LINK_ID"
+  -d "https://api.attrack.co.kr/l/$APP_PACKAGE/$LINK_ID"
 ```
 
 A deferred link needs a real install from Google Play (for example, an internal
 testing track); a sideloaded APK reports `NO_LINK` on first open. See
-[Deep links](DEEP_LINKS.md) for Java code, limits and troubleshooting.
+[Deep links](DEEP_LINKS.en.md) for Java code, limits and troubleshooting.
 
 ## 8. Install attribution
 
@@ -343,7 +424,7 @@ Tracker.setResultListener(result -> {
         Log.w("MyApp", result.getCode() + ": " + result.getMessage());
     }
 });
-Tracker.initializeWithResult(getApplicationContext(), "app_611b8e8624cfc117300f4712");
+Tracker.initializeWithResult(getApplicationContext(), BuildConfig.ATTRACK_APP_ID, BuildConfig.ATTRACK_CLIENT_KEY);
 
 Map<String, Object> params = new HashMap<>();
 params.put("level", 3);
@@ -367,8 +448,8 @@ release build.
 
 | Method | Returns | Description |
 |---|---|---|
-| `initialize(context, appId)` | — | Starts the SDK. Debug builds throw on a configuration error |
-| `initializeWithResult(context, appId)` | `TrackerResult` | Starts the SDK and returns the immediate outcome |
+| `initialize(context, appId, clientKey)` | — | Starts the SDK. Debug builds throw on a configuration error |
+| `initializeWithResult(context, appId, clientKey)` | `TrackerResult` | Starts the SDK and returns the immediate outcome |
 | `setResultListener(listener)` | — | Receives every result on the SDK worker thread; `null` removes it |
 | `logEvent(name, params)` | `String?` | Queues an event; returns its `transaction_id`, or `null` if rejected |
 | `logEventWithResult(name, params)` | `TrackerResult` | Queues an event with strict checks; `EVENT_QUEUED` or an error code |
@@ -402,18 +483,7 @@ release build.
 
 **`PendingDynamicLinkData`**: `parameters` (the link's parameters), `linkId`,
 `isDeferred`, `handoffId` (stable key for one deferred link), `clickId` and `sender`
-(the click that led here, informational), `link`. `trackingToken` is internal: do
-not log or change it.
+(the click that led here, informational), `link`.
 
 **`TrackerLinkActivity`**: the SDK Activity that receives verified links. Declare
 it in your manifest (section 7); do not start it yourself.
-
-`TrackerDynamicLinks` and `DynamicLinkBuilder` exist only for compatibility with
-older integrations. Use `handleDeepLink`.
-
-## Migrating from 0.4.x
-
-- Remove calls to `Tracker.setAdvertisingConsent` and
-  `Tracker.setDeviceDeduplicationConsent`. Both were removed; identifiers are now
-  always collected (section 9).
-- Update your Data safety declaration accordingly.

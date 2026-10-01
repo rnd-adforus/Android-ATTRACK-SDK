@@ -19,11 +19,6 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         tools:targetApi="31">
 
-        <!-- Client key: injected at build time, never committed. -->
-        <meta-data
-            android:name="kr.co.attrack.sdk.CLIENT_KEY"
-            android:value="${attrackClientKey}" />
-
         <!--
           The real launch Activity. singleTop so a second link while the app is
           open arrives in onNewIntent instead of stacking another screen.

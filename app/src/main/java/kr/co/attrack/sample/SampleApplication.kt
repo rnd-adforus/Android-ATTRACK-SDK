@@ -18,11 +18,11 @@ class SampleApplication : Application() {
         //    worker thread; SampleLog only touches thread-safe state.
         Tracker.setResultListener(SampleLog::result)
 
-        // 2. Initialize once, in the main process, with the App ID issued for your app.
+        // 2. Initialize once, in the main process, with the App ID and current client key issued for your app.
         //    The install event is collected and sent automatically, together with
         //    the Google Advertising ID and secure ID (collected on every event).
         //    INITIALIZATION_STARTED is local; INITIALIZED arrives on the listener
         //    once the server has accepted this app's identity.
-        initStart = Tracker.initializeWithResult(this, BuildConfig.ATTRACK_APP_ID)
+        initStart = Tracker.initializeWithResult(this, BuildConfig.ATTRACK_APP_ID, BuildConfig.ATTRACK_CLIENT_KEY)
     }
 }
