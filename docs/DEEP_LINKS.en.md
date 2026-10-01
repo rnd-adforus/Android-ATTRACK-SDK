@@ -1,4 +1,4 @@
-# Deep links — ATTRACK Android SDK 1.0.1
+# Deep links — ATTRACK Android SDK 1.0.2
 
 ATTRACK links open your app and hand it the parameters defined for the link.
 

@@ -14,8 +14,9 @@ class SampleApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // 1. Listen first, so no result is missed. Callbacks arrive on the SDK
-        //    worker thread; SampleLog only touches thread-safe state.
+        // Optional: this showcase displays results on its Overview screen.
+        // Real apps can omit the listener and just call Tracker.initialize().
+        // Local callbacks may use the caller thread; SampleLog is thread-safe.
         Tracker.setResultListener(SampleLog::result)
 
         // 2. Initialize once, in the main process, with the App ID and current client key issued for your app.

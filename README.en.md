@@ -1,47 +1,16 @@
 # ATTRACK Android SDK
 
-Install attribution, in-app event tracking and deep links for Android apps.
+Track installs automatically and send in-app events from your Android app.
 
-- Attributes installs from Google Play (Install Referrer), sent automatically
-- Logs in-app events checked against your app's registered event schema
-- Opens your app from links, including the first open after an install (deferred links)
-- Delivers reliably: events are saved on the device and retried after offline
-  periods, restarts and process death
+[한국어](README.md)
 
-This repository contains the **documentation** and a **sample app**. The SDK
-itself is distributed as a library (`com.adforus.sdk:attrack`).
+Register your own package and signing certificate with ATTRACK, then get your App ID and client key from the partner console. Replace `YOUR_APP_ID` and `YOUR_CLIENT_KEY` below. Android 5.0+, compileSdk 35+, AGP 8.6+ and JDK 17 are required.
 
-[한국어 README](README.md)
+## 1. Add the dependency
 
-## Documentation
-
-| | English | 한국어 |
-|---|---|---|
-| Get started: setup, events, results, API reference | [Get started](docs/INTEGRATION_GUIDE.en.md) | [시작하기](docs/INTEGRATION_GUIDE.md) |
-| Deep links and deferred deep links | [Deep links](docs/DEEP_LINKS.en.md) | [딥링크](docs/DEEP_LINKS.md) |
-
-## Requirements
-
-| | |
-|---|---|
-| `minSdk` | 21 (Android 5.0) |
-| `compileSdk` | 35 or higher (36 recommended) |
-| Android Gradle Plugin | 8.6.0+ (8.9.0+ for compileSdk 36) |
-| JDK | 17 |
-| Languages | Kotlin and Java |
-
-See [Get started](docs/INTEGRATION_GUIDE.en.md#before-you-begin) for the full list.
-
-## Quick start
-
-**1. Add the Maven repository and dependency**
-
-Gradle downloads the ATTRACK SDK directly from the Nexus Maven repository below.
-Add the repository to your project's `settings.gradle.kts`. If you already have a
-`repositories` block, add the `maven` entry to that block.
+Add this Maven entry to the existing repositories in **settings.gradle.kts**:
 
 ```kotlin
-// settings.gradle.kts
 dependencyResolutionManagement {
     repositories {
         google()
@@ -51,129 +20,70 @@ dependencyResolutionManagement {
 }
 ```
 
-Add the dependency in your app module's `app/build.gradle.kts`.
+Then add this line in your app module's **build.gradle.kts** and sync Gradle:
 
 ```kotlin
 dependencies {
-    implementation("com.adforus.sdk:attrack:1.0.1")
+    implementation("com.adforus.sdk:attrack:1.0.2")
 }
 ```
 
-For your existing app, run Gradle Sync in Android Studio or build with the command below. Gradle
-downloads the SDK and its dependencies (Install Referrer, Advertising ID,
-WorkManager) automatically; there is no manual file
-download step. Downloading requires no Nexus login or SDK client key.
+Gradle downloads the SDK and its Install Referrer, Advertising ID and WorkManager dependencies automatically. No repository login is needed. The SDK also adds `INTERNET` and `com.google.android.gms.permission.AD_ID` through manifest merging; an existing identical permission declaration does not conflict.
 
-```bash
-./gradlew :app:assembleDebug
-```
+## 2. Initialize once when your app starts
 
-**2. Supply your app's App ID and current client key**
-
-Load the key from private build configuration or your app's runtime
-configuration. This example uses your app's `BuildConfig.ATTRACK_APP_ID` and
-`BuildConfig.ATTRACK_CLIENT_KEY`; see [Get started](docs/INTEGRATION_GUIDE.en.md#3-initialize-the-sdk)
-for the field definitions.
-
-**3. Initialize in your `Application`**
+In your `Application.onCreate()`, call:
 
 ```kotlin
-Tracker.setResultListener { result -> Log.d("ATTRACK", "${result.code}") }
-Tracker.initializeWithResult(this, BuildConfig.ATTRACK_APP_ID, BuildConfig.ATTRACK_CLIENT_KEY)
+Tracker.initialize(this, "YOUR_APP_ID", "YOUR_CLIENT_KEY")
 ```
 
-**4. Log an event**
+If you do not have an `Application` class yet, create one:
 
 ```kotlin
-Tracker.logEventWithResult("purchase", mapOf("sku" to "pro_monthly", "revenue" to 9.99, "currency" to "KRW"))
+import android.app.Application
+import kr.co.attrack.tracker.Tracker
+
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        Tracker.initialize(this, "YOUR_APP_ID", "YOUR_CLIENT_KEY")
+    }
+}
 ```
 
-The install is tracked automatically. Continue with [Get started](docs/INTEGRATION_GUIDE.en.md).
+Register that class in your existing `AndroidManifest.xml` application element:
 
-## Sample app
-
-A complete integration you can run and copy from.
-
-| Deferred link (first open after install) | Direct link (app installed) |
-|---|---|
-| <img src="docs/images/deferred-link.png" width="260" alt="Offer page opened by a deferred link and acknowledged"> | <img src="docs/images/direct-link.png" width="260" alt="Product page opened by a direct link"> |
-
-### Run it
-
-1. Use **your own app's `applicationId` (installed package)**. This sample is
-   a template to adapt to your app. Use that package's App ID and client key,
-   and register the certificate that signs your installed build
-   (`./gradlew signingReport`). Play installs use the Play app-signing certificate.
-   There is no shared demo app, shared key, or sample registration on the server.
-   Register these events for your own app:
-
-   | Event | Counted | Parameters |
-   |---|---|---|
-   | `sign_up` | once per installation | `method: string` |
-   | `tutorial_complete` | once per installation | — |
-   | `level_complete` | every event | `level: number`, `score: number`, `perfect: bool` |
-   | `purchase` | every event | `sku: string`, `revenue: number`, `currency: string`, `order_id: string` |
-
-2. Add your values to `local.properties` (git-ignored):
-
-   ```properties
-   attrack.packageName=com.yourcompany.yourapp
-   attrack.appId=app_xxxxxxxxxxxxxxxxxxxxxxxx
-   attrack.clientKey=your-client-key
-   ```
-
-   They also work as `-P` Gradle flags or as the environment variables
-   `ATTRACK_PACKAGE_NAME`, `ATTRACK_APP_ID` and `ATTRACK_CLIENT_KEY`.
-   A package name is required before building.
-
-3. The template already configures the Nexus Maven repository and the
-   `com.adforus.sdk:attrack:1.0.1` dependency. Keep the repository URL as configured.
-   Gradle downloads the SDK and its dependencies when you sync or build. Set `attrack.packageName` to your exact registered package.
-   The source `namespace` and `kr.co.attrack.sample` folders describe the template's
-   code; the installed package is set by `attrack.packageName`.
-   Gradle automatically expands `${applicationId}` in `AndroidManifest.xml`.
-
-4. Build and install:
-
-   ```bash
-   ./gradlew :app:installDebug
-   ```
-
-Without an App ID or client key the app still runs and shows why the SDK did not
-start (`INVALID_APP_ID` or `INVALID_CONFIGURATION`).
-
-### What it shows
-
-| Screen | Shows |
-|---|---|
-| **Overview** | `Tracker.status()`, the start result, the event schema and `Tracker.installAttribution()` |
-| **Events** | One button per event, plus deliberate mistakes the SDK rejects on the device |
-| **Links** | Recent link results, and a retry button when the link service was unreachable |
-| **Offer / Product** | The page a link opens, with how you arrived: direct or deferred, link ID, parameters, acknowledgement |
-| **Data** | The device identifiers the SDK collects |
-| **Log** | Every SDK result, newest first (also in logcat: `adb logcat -s AttrackSample`) |
-
-### Where the integration lives
-
-| File | What it shows |
-|---|---|
-| [`SampleApplication.kt`](app/src/main/java/kr/co/attrack/sample/SampleApplication.kt) | Result listener, then `initializeWithResult` once in `Application.onCreate` |
-| [`SampleEvents.kt`](app/src/main/java/kr/co/attrack/sample/SampleEvents.kt) | `logEventWithResult` for each event |
-| [`MainActivity.kt`](app/src/main/java/kr/co/attrack/sample/MainActivity.kt) | `handleDeepLink` in `onCreate`/`onNewIntent`, acknowledging deferred links, `handoffId`, retry on the next foreground |
-| [`DeepLinkRouter.kt`](app/src/main/java/kr/co/attrack/sample/DeepLinkRouter.kt) | Allow-listed routing of link parameters (unit-tested) |
-| [`AndroidManifest.xml`](app/src/main/AndroidManifest.xml) | Backup rules and a link filter scoped to your applicationId |
-
-### Try a link
-
-```bash
-APP_PACKAGE="com.yourcompany.yourapp"  # your registered applicationId
-LINK_ID="YOUR_LINK_ID"
-adb shell am start -W -a android.intent.action.VIEW \
-  -d "https://api.attrack.co.kr/l/$APP_PACKAGE/$LINK_ID"
+```xml
+<application android:name=".MyApplication">
+    <!-- Your existing activities and other declarations -->
+</application>
 ```
 
-Use a link ID created for your own registered app. Deferred links need an install from Google
-Play (for example an internal testing track); a sideloaded APK reports `NO_LINK`.
+Use the full class name if `MyApplication` is outside your app's namespace. If your app already has an `Application` class, add the call there and keep its existing manifest entry.
+
+**That completes basic integration.** The SDK records the install, fetches your event definitions and retries queued work automatically. You do not need a listener, an initialization callback, or SDK-specific backup rules. SDK state stays in Android's private no-backup storage.
+
+Pass the client key as an argument—never as manifest metadata. In your real app, obtain it from your private build or runtime configuration; do not commit a real key to a public repository. Replace the placeholders above with that configuration. After a key rotation, supply the new key at the next process start. An embedded client key is extractable from an app; it is not a server administrator credential or device attestation.
+
+## 3. Send an event when it happens
+
+Use an event name and parameters registered for your app in the partner console. For example, if you registered `sign_up` with a string parameter named `method`:
+
+```kotlin
+Tracker.logEvent("sign_up", mapOf("method" to "email"))
+```
+
+Call this after `initialize()`; you do not need to wait for a network response. The published SDK queues it locally and the server validates it against your registered event definition. Do not send `install` yourself—the SDK owns that event.
+
+The returned transaction ID means the event was **queued**, not yet accepted by the server. A `null` return means local rejection. Check the partner console's logs to confirm server receipt. Debug-signed traffic appears in logs but is excluded from production statistics and postbacks.
+
+## Next steps
+
+- [Integration guide](docs/INTEGRATION_GUIDE.en.md): requirements, results, delivery and troubleshooting.
+- [Deep links](docs/DEEP_LINKS.en.md): open the right screen from a link.
+- [API reference](docs/API_REFERENCE.en.md): all public methods.
+- [Run the sample template](docs/RUN_SAMPLE.en.md): optional; use your own registered package, certificate and credentials. No shared demo account is provided.
 
 ## License
 

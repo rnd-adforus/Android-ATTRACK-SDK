@@ -4,15 +4,10 @@
 
     <!-- INTERNET and AD_ID are merged from the SDK manifest. -->
 
-    <!--
-      Backup is allowed for the app's own data, but the SDK's state must never be
-      restored onto another installation: these rules exclude it.
-    -->
+    <!-- The SDK keeps its own state in Android's no-backup directory. -->
     <application
         android:name=".SampleApplication"
         android:allowBackup="true"
-        android:dataExtractionRules="@xml/attrack_tracker_backup_rules"
-        android:fullBackupContent="@xml/attrack_tracker_backup_rules_legacy"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"

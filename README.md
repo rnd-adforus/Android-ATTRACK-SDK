@@ -1,47 +1,16 @@
 # ATTRACK Android SDK
 
-Android 앱을 위한 설치 귀속, 앱 내 이벤트 측정, 딥링크 SDK입니다.
+앱 설치를 자동 기록하고 앱에서 발생한 이벤트를 전송하는 Android SDK입니다.
 
-- Google Play 설치를 귀속합니다(Install Referrer, 자동 전송)
-- 앱에 등록된 이벤트 스키마로 검사한 앱 내 이벤트를 기록합니다
-- 링크로 앱을 엽니다. 설치 직후 첫 실행(지연 딥링크)도 지원합니다
-- 안정적으로 전송합니다. 이벤트는 기기에 저장되어 오프라인, 재시작, 프로세스
-  종료 후에도 재시도됩니다
+[English](README.en.md)
 
-이 저장소에는 **문서**와 **샘플 앱**이 있습니다. SDK 자체는 라이브러리
-(`com.adforus.sdk:attrack`)로 배포됩니다.
+본인 앱의 패키지와 서명 인증서를 등록하고 파트너 콘솔에서 앱 ID와 클라이언트 키를 받으세요. 아래 `YOUR_APP_ID`, `YOUR_CLIENT_KEY`를 본인 값으로 바꿉니다. Android 5.0 이상, compileSdk 35 이상, AGP 8.6 이상, JDK 17이 필요합니다.
 
-[English README](README.en.md)
+## 1. SDK 의존성 추가
 
-## 문서
-
-| | 한국어 | English |
-|---|---|---|
-| 시작하기: 설치, 이벤트, 결과, API 레퍼런스 | [시작하기](docs/INTEGRATION_GUIDE.md) | [Get started](docs/INTEGRATION_GUIDE.en.md) |
-| 딥링크와 지연 딥링크 | [딥링크](docs/DEEP_LINKS.md) | [Deep links](docs/DEEP_LINKS.en.md) |
-
-## 지원 환경
-
-| | |
-|---|---|
-| `minSdk` | 21 (Android 5.0) |
-| `compileSdk` | 35 이상 (36 권장) |
-| Android Gradle Plugin | 8.6.0 이상 (compileSdk 36은 8.9.0 이상) |
-| JDK | 17 |
-| 언어 | Kotlin, Java |
-
-전체 요구 사항은 [시작하기](docs/INTEGRATION_GUIDE.md#시작하기-전에)를 참고하세요.
-
-## 빠른 시작
-
-**1. Maven 저장소와 의존성 추가**
-
-ATTRACK SDK는 아래 Nexus Maven 저장소에서 Gradle이 자동으로 다운로드합니다.
-먼저 프로젝트의 `settings.gradle.kts`에 저장소를 추가하세요. 기존 저장소 설정이
-있다면 그 `repositories` 블록에 `maven` 항목만 추가합니다.
+프로젝트의 **settings.gradle.kts**에 있는 저장소 목록에 Maven 주소를 추가하세요.
 
 ```kotlin
-// settings.gradle.kts
 dependencyResolutionManagement {
     repositories {
         google()
@@ -51,127 +20,70 @@ dependencyResolutionManagement {
 }
 ```
 
-앱 모듈의 `app/build.gradle.kts`에 의존성을 추가하세요.
+앱 모듈의 **build.gradle.kts**에 다음 의존성을 추가하고 Gradle Sync를 실행하세요.
 
 ```kotlin
 dependencies {
-    implementation("com.adforus.sdk:attrack:1.0.1")
+    implementation("com.adforus.sdk:attrack:1.0.2")
 }
 ```
 
-본인 앱에서 Android Studio의 Gradle Sync를 실행하거나 아래 명령으로 빌드합니다.
-Gradle이 SDK와 필요한 의존성(Install Referrer, 광고 ID, WorkManager)을 다운로드하므로 파일을 따로 받을 필요가 없습니다.
-다운로드에는 Nexus 로그인이나 SDK client key가 필요하지 않습니다.
+Gradle이 SDK와 Install Referrer, 광고 ID, WorkManager 라이브러리를 함께 내려받습니다. 저장소 로그인은 필요하지 않습니다. `INTERNET`, `com.google.android.gms.permission.AD_ID` 권한도 SDK manifest에서 자동 병합됩니다. 앱에 동일한 권한이 이미 선언되어 있어도 충돌하지 않습니다.
 
-```bash
-./gradlew :app:assembleDebug
-```
+## 2. 앱 시작 시 한 번 초기화
 
-**2. 내 앱의 App ID와 현재 client key 준비**
-
-키를 개인 빌드 설정 또는 앱의 런타임 설정에서 가져오세요. 아래 예시는 앱의
-`BuildConfig.ATTRACK_APP_ID`, `BuildConfig.ATTRACK_CLIENT_KEY` 필드를 사용합니다.
-[시작하기](docs/INTEGRATION_GUIDE.md#3-sdk-초기화)에 필드 설정 방법이 있습니다.
-
-**3. `Application`에서 초기화**
+앱의 `Application.onCreate()`에서 다음 함수를 호출하세요.
 
 ```kotlin
-Tracker.setResultListener { result -> Log.d("ATTRACK", "${result.code}") }
-Tracker.initializeWithResult(this, BuildConfig.ATTRACK_APP_ID, BuildConfig.ATTRACK_CLIENT_KEY)
+Tracker.initialize(this, "YOUR_APP_ID", "YOUR_CLIENT_KEY")
 ```
 
-**4. 이벤트 기록**
+아직 `Application` 클래스가 없다면 아래처럼 만드세요.
 
 ```kotlin
-Tracker.logEventWithResult("purchase", mapOf("sku" to "pro_monthly", "revenue" to 9.99, "currency" to "KRW"))
+import android.app.Application
+import kr.co.attrack.tracker.Tracker
+
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        Tracker.initialize(this, "YOUR_APP_ID", "YOUR_CLIENT_KEY")
+    }
+}
 ```
 
-설치는 자동으로 측정됩니다. 이어서 [시작하기](docs/INTEGRATION_GUIDE.md)를 참고하세요.
+기존 `AndroidManifest.xml`의 application 요소에 클래스를 등록하세요.
 
-## 샘플 앱
-
-실행해 보고 그대로 가져다 쓸 수 있는 전체 연동 예시입니다.
-
-| 지연 링크 (설치 후 첫 실행) | 직접 링크 (앱 설치됨) |
-|---|---|
-| <img src="docs/images/deferred-link.png" width="260" alt="지연 링크로 열리고 확인된 Offer 화면"> | <img src="docs/images/direct-link.png" width="260" alt="직접 링크로 열린 Product 화면"> |
-
-### 실행 방법
-
-1. 본인 앱의 `applicationId`(설치 패키지)를 사용하세요. 이 샘플은 본인 앱에
-   맞게 바꿔 사용하는 템플릿입니다. 해당 패키지의 App ID와 client key를 사용하고,
-   설치할 빌드의 서명 인증서가 등록되어 있어야 합니다(`./gradlew signingReport`).
-   Play 설치는 업로드 키가 아닌 Play 앱 서명 인증서를 등록하세요.
-   공용 테스트 앱, 공용 키, 서버의 샘플용 앱 등록은 제공하지 않습니다.
-   다음 이벤트를 본인 앱에 등록하세요.
-
-   | 이벤트 | 집계 | 파라미터 |
-   |---|---|---|
-   | `sign_up` | 설치당 1회 | `method: string` |
-   | `tutorial_complete` | 설치당 1회 | — |
-   | `level_complete` | 매번 | `level: number`, `score: number`, `perfect: bool` |
-   | `purchase` | 매번 | `sku: string`, `revenue: number`, `currency: string`, `order_id: string` |
-
-2. `local.properties`(git 제외)에 값을 추가합니다.
-
-   ```properties
-   attrack.packageName=com.yourcompany.yourapp
-   attrack.appId=app_xxxxxxxxxxxxxxxxxxxxxxxx
-   attrack.clientKey=your-client-key
-   ```
-
-   Gradle `-P` 옵션이나 환경 변수 `ATTRACK_PACKAGE_NAME`, `ATTRACK_APP_ID`,
-   `ATTRACK_CLIENT_KEY`로도 지정할 수 있습니다. 패키지 설정이 없으면 빌드가 중단됩니다.
-
-3. 템플릿에는 Nexus Maven 저장소와 `com.adforus.sdk:attrack:1.0.1` 의존성이
-   이미 설정되어 있습니다. 저장소 URL은 바꿀 필요가 없습니다. Gradle Sync 또는
-   빌드 시 SDK와 의존성이 자동으로 다운로드됩니다.
-   `attrack.packageName`은 본인 앱에 등록된 정확한 패키지로 바꾸세요.
-   `namespace`와 소스 코드의 `kr.co.attrack.sample`은 템플릿 코드 위치이며,
-   설치되는 앱의 패키지는 `attrack.packageName`으로 결정됩니다.
-   `AndroidManifest.xml`의 `${applicationId}`는 해당 값으로 자동 치환됩니다.
-
-4. 빌드 및 설치:
-
-   ```bash
-   ./gradlew :app:installDebug
-   ```
-
-App ID나 client key가 없어도 앱은 실행되며 SDK가 시작되지 않은 이유
-(`INVALID_APP_ID` 또는 `INVALID_CONFIGURATION`)를 보여 줍니다.
-
-### 화면 구성
-
-| 화면 | 내용 |
-|---|---|
-| **Overview** | `Tracker.status()`, 시작 결과, 이벤트 스키마, `Tracker.installAttribution()` |
-| **Events** | 이벤트별 버튼과 SDK가 기기에서 거부하는 잘못된 예시 |
-| **Links** | 최근 링크 결과, 링크 서비스에 연결할 수 없을 때의 재시도 버튼 |
-| **Offer / Product** | 링크로 열린 화면과 도착 경로: 직접/지연, 링크 ID, 파라미터, 확인 여부 |
-| **Data** | SDK가 수집하는 기기 식별자 |
-| **Log** | 모든 SDK 결과, 최신순(logcat: `adb logcat -s AttrackSample`) |
-
-### 연동 코드 위치
-
-| 파일 | 내용 |
-|---|---|
-| [`SampleApplication.kt`](app/src/main/java/kr/co/attrack/sample/SampleApplication.kt) | Result listener 설정 후 `Application.onCreate`에서 `initializeWithResult` 1회 호출 |
-| [`SampleEvents.kt`](app/src/main/java/kr/co/attrack/sample/SampleEvents.kt) | 이벤트별 `logEventWithResult` |
-| [`MainActivity.kt`](app/src/main/java/kr/co/attrack/sample/MainActivity.kt) | `onCreate`/`onNewIntent`의 `handleDeepLink`, 지연 링크 확인, `handoffId`, 다음 foreground 재시도 |
-| [`DeepLinkRouter.kt`](app/src/main/java/kr/co/attrack/sample/DeepLinkRouter.kt) | 링크 파라미터의 허용 목록 기반 화면 이동(단위 테스트 포함) |
-| [`AndroidManifest.xml`](app/src/main/AndroidManifest.xml) | 백업 규칙, 내 applicationId 범위의 링크 필터 |
-
-### 링크 테스트
-
-```bash
-APP_PACKAGE="com.yourcompany.yourapp"  # 본인 앱에 등록된 applicationId
-LINK_ID="YOUR_LINK_ID"
-adb shell am start -W -a android.intent.action.VIEW \
-  -d "https://api.attrack.co.kr/l/$APP_PACKAGE/$LINK_ID"
+```xml
+<application android:name=".MyApplication">
+    <!-- 기존 액티비티 등 앱 선언 -->
+</application>
 ```
 
-본인 앱에 생성된 링크 ID를 사용하세요. 지연 링크는 Google Play 설치(예: 내부
-테스트 트랙)가 필요하며, 직접 설치한 APK는 `NO_LINK`를 반환합니다.
+클래스가 앱 namespace 밖에 있으면 전체 클래스 이름을 입력하세요. 이미 `Application` 클래스를 사용 중이라면 해당 클래스에 초기화 호출만 추가하고 기존 manifest 설정을 유지하면 됩니다.
+
+**기본 연동은 여기까지입니다.** SDK가 설치 기록, 이벤트 정의 조회, 대기 중인 이벤트 재전송을 처리합니다. 초기화 콜백이나 리스너를 기다릴 필요가 없습니다. SDK 상태는 Android의 비공개 백업 제외 영역에 저장되므로 SDK를 위한 백업 규칙도 추가할 필요가 없습니다.
+
+클라이언트 키는 manifest가 아닌 **초기화 인자**로 전달합니다. 실제 앱에서는 비공개 빌드 설정이나 런타임 설정에서 키를 가져와 위 자리 표시자를 대체하세요. 실제 키를 공개 저장소에 커밋하지 마세요. 키를 교체하면 다음 앱 프로세스 시작 때 새 키를 전달합니다. 앱에 포함된 클라이언트 키는 추출될 수 있으므로 관리자 인증 정보나 기기 무결성 증명으로 취급하지 않습니다.
+
+## 3. 이벤트가 발생할 때 전송
+
+파트너 콘솔에 등록한 이벤트 이름과 파라미터를 사용하세요. 예를 들어 `sign_up` 이벤트에 문자열 `method`를 등록했다면:
+
+```kotlin
+Tracker.logEvent("sign_up", mapOf("method" to "email"))
+```
+
+`initialize()` 호출 뒤부터 사용할 수 있으며 서버 응답을 기다릴 필요는 없습니다. 배포 SDK는 이벤트를 기기에 저장하고 서버가 등록된 이벤트 정의에 맞는지 검증합니다. `install`은 SDK가 자동 전송하므로 직접 보내지 마세요.
+
+반환된 트랜잭션 ID는 **기기에 저장됐다는 뜻**이며 서버 수신 완료를 뜻하지 않습니다. `null`이면 로컬에서 거부된 것입니다. 서버 수신 여부는 파트너 콘솔의 로그에서 확인하세요. 디버그 서명으로 전송한 데이터는 로그에는 표시되지만 운영 통계와 포스트백에는 포함되지 않습니다.
+
+## 더 알아보기
+
+- [연동 가이드](docs/INTEGRATION_GUIDE.md): 지원 환경, 결과 확인, 전송 방식과 문제 해결
+- [딥링크](docs/DEEP_LINKS.md): 링크로 앱의 특정 화면 열기
+- [API 레퍼런스](docs/API_REFERENCE.ko.md): 전체 공개 메서드
+- [샘플 템플릿 실행](docs/RUN_SAMPLE.ko.md): 필요한 경우에만 사용하세요. 본인 앱의 패키지, 인증서와 키로 설정하며 공용 데모 계정은 제공하지 않습니다.
 
 ## 라이선스
 

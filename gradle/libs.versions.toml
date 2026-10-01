@@ -2,7 +2,7 @@
 # Same toolchain line as the SDK itself (AGP 8.9 / Kotlin 2.0).
 agp = "8.9.2"
 kotlin = "2.0.21"
-attrack = "1.0.1"
+attrack = "1.0.2"
 activityCompose = "1.9.3"
 composeBom = "2024.12.01"
 junit = "4.13.2"
