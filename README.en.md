@@ -24,7 +24,7 @@ Then add this line in your app module's **build.gradle.kts** and sync Gradle:
 
 ```kotlin
 dependencies {
-    implementation("com.adforus.sdk:attrack:1.0.2")
+    implementation("com.adforus.sdk:attrack:1.0.0")
 }
 ```
 
@@ -82,7 +82,7 @@ The returned transaction ID means the event was **queued**, not yet accepted by 
 
 - [Integration guide](docs/INTEGRATION_GUIDE.en.md): requirements, results, delivery and troubleshooting.
 - [Deep links](docs/DEEP_LINKS.en.md): open the right screen from a link.
-- [API reference](docs/API_REFERENCE.en.md): all public methods.
+- [API reference](docs/API_REFERENCE.en.md): Kotlin and Java examples for initialization, events, listeners, schema, attribution, and deep links.
 - [Run the sample template](docs/RUN_SAMPLE.en.md): optional; use your own registered package, certificate and credentials. No shared demo account is provided.
 
 ## License

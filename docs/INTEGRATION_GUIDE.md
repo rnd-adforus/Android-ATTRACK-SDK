@@ -30,7 +30,7 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("com.adforus.sdk:attrack:1.0.2")
+    implementation("com.adforus.sdk:attrack:1.0.0")
 }
 ```
 

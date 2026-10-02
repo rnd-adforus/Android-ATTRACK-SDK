@@ -35,7 +35,7 @@ A complete integration you can run and copy from.
    A package name is required before building.
 
 3. The template already configures the Nexus Maven repository and the
-   `com.adforus.sdk:attrack:1.0.2` dependency. Keep the repository URL as configured.
+   `com.adforus.sdk:attrack:1.0.0` dependency. Keep the repository URL as configured.
    Gradle downloads the SDK and its dependencies when you sync or build. Set `attrack.packageName` to your exact registered package.
    The source `namespace` and `kr.co.attrack.sample` folders describe the template's
    code; the installed package is set by `attrack.packageName`.

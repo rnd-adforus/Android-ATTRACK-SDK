@@ -33,7 +33,7 @@
    Gradle `-P` 옵션이나 환경 변수 `ATTRACK_PACKAGE_NAME`, `ATTRACK_APP_ID`,
    `ATTRACK_CLIENT_KEY`로도 지정할 수 있습니다. 패키지 설정이 없으면 빌드가 중단됩니다.
 
-3. 템플릿에는 Nexus Maven 저장소와 `com.adforus.sdk:attrack:1.0.2` 의존성이
+3. 템플릿에는 Nexus Maven 저장소와 `com.adforus.sdk:attrack:1.0.0` 의존성이
    이미 설정되어 있습니다. 저장소 URL은 바꿀 필요가 없습니다. Gradle Sync 또는
    빌드 시 SDK와 의존성이 자동으로 다운로드됩니다.
    `attrack.packageName`은 본인 앱에 등록된 정확한 패키지로 바꾸세요.

@@ -1,4 +1,4 @@
-# 딥링크 — ATTRACK Android SDK 1.0.2
+# 딥링크 — ATTRACK Android SDK 1.0.0
 
 ATTRACK 링크는 앱을 열고 링크에 정의된 파라미터를 앱에 전달합니다.
 

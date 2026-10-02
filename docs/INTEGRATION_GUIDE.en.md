@@ -30,7 +30,7 @@ Then add this line in your app module's **build.gradle.kts** and sync Gradle:
 
 ```kotlin
 dependencies {
-    implementation("com.adforus.sdk:attrack:1.0.2")
+    implementation("com.adforus.sdk:attrack:1.0.0")
 }
 ```
 

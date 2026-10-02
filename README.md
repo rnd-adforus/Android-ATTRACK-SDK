@@ -24,7 +24,7 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("com.adforus.sdk:attrack:1.0.2")
+    implementation("com.adforus.sdk:attrack:1.0.0")
 }
 ```
 
@@ -82,7 +82,7 @@ Tracker.logEvent("sign_up", mapOf("method" to "email"))
 
 - [연동 가이드](docs/INTEGRATION_GUIDE.md): 지원 환경, 결과 확인, 전송 방식과 문제 해결
 - [딥링크](docs/DEEP_LINKS.md): 링크로 앱의 특정 화면 열기
-- [API 레퍼런스](docs/API_REFERENCE.ko.md): 전체 공개 메서드
+- [API 레퍼런스](docs/API_REFERENCE.ko.md): 초기화·이벤트·리스너·스키마·설치 정보·딥링크의 Kotlin/Java 사용 예제
 - [샘플 템플릿 실행](docs/RUN_SAMPLE.ko.md): 필요한 경우에만 사용하세요. 본인 앱의 패키지, 인증서와 키로 설정하며 공용 데모 계정은 제공하지 않습니다.
 
 ## 라이선스
