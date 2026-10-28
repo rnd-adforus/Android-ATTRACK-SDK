@@ -1,5 +1,17 @@
 # ATTRACK Android SDK API
 
+## 버전 1.1.0 스레드 및 접수 계약
+
+초기화는 저장소·패키지 정보·네트워크 작업을 백그라운드에 예약합니다. `INITIALIZATION_STARTED`는 예약 접수이며 로컬 설정 완료가 아닙니다. 설정 실패 또는 서버 승인 `INITIALIZED`는 리스너로 전달됩니다. 초기화 직후 호출한 이벤트는 같은 저장 작업 큐에서 설정 완료를 기다립니다.
+
+`logEvent`의 transaction ID와 `logEventWithResult`의 `EVENT_ACCEPTED`는 메모리 접수만 의미합니다. 이후 `EVENT_QUEUED`는 로컬 저장 성공, `QUEUE_WRITE_FAILED`는 같은 transaction ID의 저장 실패입니다. 저장 전에 프로세스가 종료되면 접수된 이벤트가 유실될 수 있습니다. 저장 작업 대기 슬롯은 128개이며 초과 시 호출 스레드를 막지 않고 거절합니다. 파라미터 복사는 JSON 16 KiB, 깊이 12, 방문 값 1024개로 제한합니다. null·문자열·불리언·기본 숫자·Map·List를 지원하며 임의 객체 변환은 거절합니다.
+
+결과 리스너는 별도의 SDK 스레드에서 실행합니다. UI 변경은 메인 스레드로 전달하세요. 느린 리스너가 알림 대기 슬롯 64개를 채우면 이후 알림은 생략되지만 저장·전송은 계속합니다. 리스너는 영구 이벤트 원장이 아닌 최선 노력 진단입니다.
+
+`acknowledgeDeepLink`의 `true`는 백그라운드 확인 작업 접수이며 저장 완료가 아닙니다. 쓰기 실패 또는 저장 전 종료 시 같은 링크를 다시 받을 수 있으므로 `handoffId`로 중복 이동을 방지하세요. 딥링크 결과 callback은 계속 메인 스레드에서 실행합니다.
+
+SDK→서버 payload는 변경하지 않았습니다. HTTP 202는 서버의 영구 intake 접수이며 최종 attribution·리포트·postback 완료가 아닙니다. 429·5xx·네트워크 실패 시 같은 이벤트 ID를 유지하여 재시도합니다.
+
 
 모든 메서드는 `kr.co.attrack.tracker.Tracker`의 static 메서드이며, release
 빌드에서는 예외를 던지지 않습니다.
@@ -10,9 +22,9 @@ Maven 배포본은 SDK의 release variant입니다. 앱을 debug로 빌드해도
 |---|---|---|
 | `initialize(context, appId, clientKey)` | — | SDK 시작. debug 빌드는 설정 오류 시 예외 |
 | `initializeWithResult(context, appId, clientKey)` | `TrackerResult` | SDK를 시작하고 즉시 결과 반환 |
-| `setResultListener(listener)` | — | 선택 기능. 로컬 결과는 호출 스레드, 네트워크 결과는 작업 스레드에서 수신. `null`이면 해제 |
-| `logEvent(name, params)` | `String?` | 이벤트 저장, `transaction_id` 반환(거부 시 `null`) |
-| `logEventWithResult(name, params)` | `TrackerResult` | 엄격한 검사 후 저장, `EVENT_QUEUED` 또는 오류 코드 |
+| `setResultListener(listener)` | — | 선택 기능. 모든 결과는 별도의 SDK 결과 스레드에서 수신. `null`이면 해제 |
+| `logEvent(name, params)` | `String?` | 이벤트 메모리 접수, `transaction_id` 반환(거부 시 `null`) |
+| `logEventWithResult(name, params)` | `TrackerResult` | 엄격한 검사 후 메모리 접수, `EVENT_ACCEPTED` 또는 오류 코드 |
 | `status()` | `TrackerStatus` | 현재 SDK 상태 |
 | `eventSchema()` | `List<TrackerEventDefinition>` | 앱이 보낼 수 있는 이벤트 |
 | `eventDefinition(name)` | `TrackerEventDefinition?` | 한 이벤트의 파라미터, 없으면 `null` |
@@ -245,8 +257,8 @@ fun handleLink(
         val data = result.data
         if (result.code == DynamicLinkCode.RESOLVED && data != null) {
             if (routeToScreen(data.parameters) && data.isDeferred) {
-                val saved = Tracker.acknowledgeDeepLink(activity, data)
-                if (!saved) android.util.Log.w("ATTRACK", "Link remains pending")
+                val admitted = Tracker.acknowledgeDeepLink(activity, data)
+                if (!admitted) android.util.Log.w("ATTRACK", "Link remains pending")
             }
         }
     }
@@ -264,8 +276,8 @@ void handleLink(android.app.Activity activity, android.content.Intent intent, Li
         PendingDynamicLinkData data = result.getData();
         if (result.getCode() == DynamicLinkCode.RESOLVED && data != null) {
             if (router.routeToScreen(data.getParameters()) && data.isDeferred()) {
-                boolean saved = Tracker.acknowledgeDeepLink(activity, data);
-                if (!saved) android.util.Log.w("ATTRACK", "Link remains pending");
+                boolean admitted = Tracker.acknowledgeDeepLink(activity, data);
+                if (!admitted) android.util.Log.w("ATTRACK", "Link remains pending");
             }
         }
     });

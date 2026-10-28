@@ -16,7 +16,7 @@ class SampleApplication : Application() {
 
         // Optional: this showcase displays results on its Overview screen.
         // Real apps can omit the listener and just call Tracker.initialize().
-        // Local callbacks may use the caller thread; SampleLog is thread-safe.
+        // Result callbacks use the SDK result thread; SampleLog is thread-safe.
         Tracker.setResultListener(SampleLog::result)
 
         // 2. Initialize once, in the main process, with the App ID and current client key issued for your app.

@@ -1,4 +1,16 @@
-# 딥링크 — ATTRACK Android SDK 1.0.0
+# 딥링크 — ATTRACK Android SDK 1.1.0
+
+## 버전 1.1.0 스레드 및 접수 계약
+
+초기화는 저장소·패키지 정보·네트워크 작업을 백그라운드에 예약합니다. `INITIALIZATION_STARTED`는 예약 접수이며 로컬 설정 완료가 아닙니다. 설정 실패 또는 서버 승인 `INITIALIZED`는 리스너로 전달됩니다. 초기화 직후 호출한 이벤트는 같은 저장 작업 큐에서 설정 완료를 기다립니다.
+
+`logEvent`의 transaction ID와 `logEventWithResult`의 `EVENT_ACCEPTED`는 메모리 접수만 의미합니다. 이후 `EVENT_QUEUED`는 로컬 저장 성공, `QUEUE_WRITE_FAILED`는 같은 transaction ID의 저장 실패입니다. 저장 전에 프로세스가 종료되면 접수된 이벤트가 유실될 수 있습니다. 저장 작업 대기 슬롯은 128개이며 초과 시 호출 스레드를 막지 않고 거절합니다. 파라미터 복사는 JSON 16 KiB, 깊이 12, 방문 값 1024개로 제한합니다. null·문자열·불리언·기본 숫자·Map·List를 지원하며 임의 객체 변환은 거절합니다.
+
+결과 리스너는 별도의 SDK 스레드에서 실행합니다. UI 변경은 메인 스레드로 전달하세요. 느린 리스너가 알림 대기 슬롯 64개를 채우면 이후 알림은 생략되지만 저장·전송은 계속합니다. 리스너는 영구 이벤트 원장이 아닌 최선 노력 진단입니다.
+
+`acknowledgeDeepLink`의 `true`는 백그라운드 확인 작업 접수이며 저장 완료가 아닙니다. 쓰기 실패 또는 저장 전 종료 시 같은 링크를 다시 받을 수 있으므로 `handoffId`로 중복 이동을 방지하세요. 딥링크 결과 callback은 계속 메인 스레드에서 실행합니다.
+
+SDK→서버 payload는 변경하지 않았습니다. HTTP 202는 서버의 영구 intake 접수이며 최종 attribution·리포트·postback 완료가 아닙니다. 429·5xx·네트워크 실패 시 같은 이벤트 ID를 유지하여 재시도합니다.
 
 ATTRACK 링크는 앱을 열고 링크에 정의된 파라미터를 앱에 전달합니다.
 
@@ -10,7 +22,7 @@ ATTRACK 링크는 앱을 열고 링크에 정의된 파라미터를 앱에 전�
 먼저 [시작하기](INTEGRATION_GUIDE.md)를 완료하세요. 링크는 `Tracker.initialize`
 없이도 동작하지만 SDK 의존성은 필요합니다.
 
-[English](DEEP_LINKS.en.md)
+[English](DEEP_LINKS.md)
 
 ## 1. 링크 Activity 선언
 

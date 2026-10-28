@@ -1,5 +1,17 @@
 # 내 Android 앱에 ATTRACK 연동하기
 
+## 버전 1.1.0 스레드 및 접수 계약
+
+초기화는 저장소·패키지 정보·네트워크 작업을 백그라운드에 예약합니다. `INITIALIZATION_STARTED`는 예약 접수이며 로컬 설정 완료가 아닙니다. 설정 실패 또는 서버 승인 `INITIALIZED`는 리스너로 전달됩니다. 초기화 직후 호출한 이벤트는 같은 저장 작업 큐에서 설정 완료를 기다립니다.
+
+`logEvent`의 transaction ID와 `logEventWithResult`의 `EVENT_ACCEPTED`는 메모리 접수만 의미합니다. 이후 `EVENT_QUEUED`는 로컬 저장 성공, `QUEUE_WRITE_FAILED`는 같은 transaction ID의 저장 실패입니다. 저장 전에 프로세스가 종료되면 접수된 이벤트가 유실될 수 있습니다. 저장 작업 대기 슬롯은 128개이며 초과 시 호출 스레드를 막지 않고 거절합니다. 파라미터 복사는 JSON 16 KiB, 깊이 12, 방문 값 1024개로 제한합니다. null·문자열·불리언·기본 숫자·Map·List를 지원하며 임의 객체 변환은 거절합니다.
+
+결과 리스너는 별도의 SDK 스레드에서 실행합니다. UI 변경은 메인 스레드로 전달하세요. 느린 리스너가 알림 대기 슬롯 64개를 채우면 이후 알림은 생략되지만 저장·전송은 계속합니다. 리스너는 영구 이벤트 원장이 아닌 최선 노력 진단입니다.
+
+`acknowledgeDeepLink`의 `true`는 백그라운드 확인 작업 접수이며 저장 완료가 아닙니다. 쓰기 실패 또는 저장 전 종료 시 같은 링크를 다시 받을 수 있으므로 `handoffId`로 중복 이동을 방지하세요. 딥링크 결과 callback은 계속 메인 스레드에서 실행합니다.
+
+SDK→서버 payload는 변경하지 않았습니다. HTTP 202는 서버의 영구 intake 접수이며 최종 attribution·리포트·postback 완료가 아닙니다. 429·5xx·네트워크 실패 시 같은 이벤트 ID를 유지하여 재시도합니다.
+
 ATTRACK은 앱 설치를 자동으로 기록하고 앱에서 발생한 이벤트를 전송합니다. **의존성을 추가하고 초기화 함수를 한 번 호출하면 기본 연동이 끝납니다.** 딥링크와 결과 리스너는 필요할 때만 추가하세요.
 
 [English](INTEGRATION_GUIDE.en.md)
@@ -30,7 +42,7 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("com.adforus.sdk:attrack:1.0.0")
+    implementation("com.adforus.sdk:attrack:1.1.0")
 }
 ```
 
@@ -96,9 +108,9 @@ Tracker.setResultListener { result ->
 Tracker.initialize(this, "YOUR_APP_ID", "YOUR_CLIENT_KEY")
 ```
 
-두 함수는 별도로 호출합니다. **리스너 안에서 `initialize()`를 호출하지 마세요.** 로컬 검증 결과는 호출 스레드에서, 네트워크 결과는 SDK 작업 스레드에서 전달될 수 있습니다. 리스너를 해제할 때는 `Tracker.setResultListener(null)`을 호출합니다.
+두 함수는 별도로 호출합니다. **리스너 안에서 `initialize()`를 호출하지 마세요.** 결과는 별도의 SDK 결과 스레드에서 전달됩니다. 리스너를 해제할 때는 `Tracker.setResultListener(null)`을 호출합니다.
 
-즉시 검증 결과가 필요한 경우 `initializeWithResult(...)`를 사용할 수 있습니다. `INITIALIZATION_STARTED`는 로컬 시작 완료이고, 서버가 초기화를 승인하면 나중에 `INITIALIZED`가 전달됩니다. `logEventWithResult(...)`는 캐시된 이벤트 정의를 엄격하게 검증하고 싶을 때 사용하는 선택 API입니다. 일반적인 연동은 앞의 간단한 함수만으로 충분합니다.
+즉시 검증 결과가 필요한 경우 `initializeWithResult(...)`를 사용할 수 있습니다. `INITIALIZATION_STARTED`는 백그라운드 설정 접수이고, 서버가 초기화를 승인하면 나중에 `INITIALIZED`가 전달됩니다. `logEventWithResult(...)`는 캐시된 이벤트 정의를 엄격하게 검증하고 싶을 때 사용하는 선택 API입니다. 일반적인 연동은 앞의 간단한 함수만으로 충분합니다.
 
 ## 선택 사항: 딥링크
 

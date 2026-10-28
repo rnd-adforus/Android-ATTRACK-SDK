@@ -1,5 +1,17 @@
 # ATTRACK Android SDK API
 
+## Version 1.1.0 threading and acceptance contract
+
+Initialization schedules background setup and returns without waiting for storage, package-manager calls, or network access. `INITIALIZATION_STARTED` confirms admission; later setup failures and `INITIALIZED` arrive through the result listener. Events called immediately after initialization wait behind setup in the same bounded storage queue.
+
+`logEvent` returns a transaction ID after in-memory admission. `logEventWithResult` returns `EVENT_ACCEPTED` after bounded parameter and cached-schema checks. Neither return value confirms persistence. The listener's later `EVENT_QUEUED` confirms the outbox write; `QUEUE_WRITE_FAILED` reports a failed write with the same transaction ID. Process exit before the write can lose an accepted event. There are 128 waiting storage tasks; overload is rejected without blocking or executing disk work on the caller. Parameters are copied with a 16 KiB encoded limit, depth 12 and 1024 visited values; supported values are null, strings, booleans, standard primitive numbers, maps and lists. Arbitrary object conversion is rejected.
+
+Result listeners run on a separate SDK thread. They must dispatch UI updates to main. A slow listener can fill the 64-slot notification queue; subsequent notifications are dropped while persistence and delivery continue. Listener notifications are best-effort diagnostics, not a durable event ledger.
+
+`acknowledgeDeepLink` is nonblocking: `true` means the background acknowledgement task was admitted, not that its write completed. A write failure or process exit before completion can redeliver the handoff; route idempotently using `handoffId`. Deep-link result callbacks still run on main.
+
+The wire contract is unchanged. HTTP 202 means the backend durably accepted the receipt for later processing; `EVENT_DELIVERED` describes that acknowledgement, not completion of attribution, reporting or partner postbacks. HTTP 429/5xx/network failures retain the same event IDs for retry.
+
 
 All methods are static on `kr.co.attrack.tracker.Tracker`. None throws in a
 published Maven release. This does not depend on whether your host app is debug or release.
@@ -8,9 +20,9 @@ published Maven release. This does not depend on whether your host app is debug 
 |---|---|---|
 | `initialize(context, appId, clientKey)` | — | Starts the SDK. The SDK source debug variant throws on configuration errors; the Maven release reports errors |
 | `initializeWithResult(context, appId, clientKey)` | `TrackerResult` | Starts the SDK and returns the immediate outcome |
-| `setResultListener(listener)` | — | Optional observer; caller thread for local results, worker for network results; `null` removes it |
+| `setResultListener(listener)` | — | Optional observer; separate SDK result thread for all results; `null` removes it |
 | `logEvent(name, params)` | `String?` | Queues an event; returns its `transaction_id`, or `null` if rejected |
-| `logEventWithResult(name, params)` | `TrackerResult` | Queues an event with strict checks; `EVENT_QUEUED` or an error code |
+| `logEventWithResult(name, params)` | `TrackerResult` | Accepts in memory with strict checks; `EVENT_ACCEPTED` or an error code |
 | `status()` | `TrackerStatus` | Current SDK state |
 | `eventSchema()` | `List<TrackerEventDefinition>` | Events this app may send |
 | `eventDefinition(name)` | `TrackerEventDefinition?` | One event's parameters, or `null` |
@@ -150,7 +162,7 @@ void recordPurchaseWithResult() {
 
 ### 4. Observe initialization and delivery (optional)
 
-Place this in Application `onCreate()` as an alternative to the first example. Register the listener before initialization to observe startup. Initialization stays outside the callback. `INITIALIZATION_STARTED` is a local start; `INITIALIZED` confirms the server response. Keep the callback short. Dispatch to the main thread before touching UI, and avoid capturing an Activity in this global listener. Pass `null` to remove it.
+Place this in Application `onCreate()` as an alternative to the first example. Register the listener before initialization to observe startup. Initialization stays outside the callback. `INITIALIZATION_STARTED` confirms background setup admission; `INITIALIZED` confirms the server response. Keep the callback short. Dispatch to the main thread before touching UI, and avoid capturing an Activity in this global listener. Pass `null` to remove it.
 
 **Kotlin**
 
@@ -243,8 +255,8 @@ fun handleLink(
         val data = result.data
         if (result.code == DynamicLinkCode.RESOLVED && data != null) {
             if (routeToScreen(data.parameters) && data.isDeferred) {
-                val saved = Tracker.acknowledgeDeepLink(activity, data)
-                if (!saved) android.util.Log.w("ATTRACK", "Link remains pending")
+                val admitted = Tracker.acknowledgeDeepLink(activity, data)
+                if (!admitted) android.util.Log.w("ATTRACK", "Link remains pending")
             }
         }
     }
@@ -262,12 +274,12 @@ void handleLink(android.app.Activity activity, android.content.Intent intent, Li
         PendingDynamicLinkData data = result.getData();
         if (result.getCode() == DynamicLinkCode.RESOLVED && data != null) {
             if (router.routeToScreen(data.getParameters()) && data.isDeferred()) {
-                boolean saved = Tracker.acknowledgeDeepLink(activity, data);
-                if (!saved) android.util.Log.w("ATTRACK", "Link remains pending");
+                boolean admitted = Tracker.acknowledgeDeepLink(activity, data);
+                if (!admitted) android.util.Log.w("ATTRACK", "Link remains pending");
             }
         }
     });
 }
 ```
 
-[Deep-link setup](DEEP_LINKS.en.md) · [Integration guide](INTEGRATION_GUIDE.en.md)
+[Deep-link setup](DEEP_LINKS.md) · [Integration guide](INTEGRATION_GUIDE.en.md)

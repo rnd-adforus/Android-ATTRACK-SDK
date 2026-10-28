@@ -1,4 +1,16 @@
-# Deep links — ATTRACK Android SDK 1.0.0
+# Deep links — ATTRACK Android SDK 1.1.0
+
+## Version 1.1.0 threading and acceptance contract
+
+Initialization schedules background setup and returns without waiting for storage, package-manager calls, or network access. `INITIALIZATION_STARTED` confirms admission; later setup failures and `INITIALIZED` arrive through the result listener. Events called immediately after initialization wait behind setup in the same bounded storage queue.
+
+`logEvent` returns a transaction ID after in-memory admission. `logEventWithResult` returns `EVENT_ACCEPTED` after bounded parameter and cached-schema checks. Neither return value confirms persistence. The listener's later `EVENT_QUEUED` confirms the outbox write; `QUEUE_WRITE_FAILED` reports a failed write with the same transaction ID. Process exit before the write can lose an accepted event. There are 128 waiting storage tasks; overload is rejected without blocking or executing disk work on the caller. Parameters are copied with a 16 KiB encoded limit, depth 12 and 1024 visited values; supported values are null, strings, booleans, standard primitive numbers, maps and lists. Arbitrary object conversion is rejected.
+
+Result listeners run on a separate SDK thread. They must dispatch UI updates to main. A slow listener can fill the 64-slot notification queue; subsequent notifications are dropped while persistence and delivery continue. Listener notifications are best-effort diagnostics, not a durable event ledger.
+
+`acknowledgeDeepLink` is nonblocking: `true` means the background acknowledgement task was admitted, not that its write completed. A write failure or process exit before completion can redeliver the handoff; route idempotently using `handoffId`. Deep-link result callbacks still run on main.
+
+The wire contract is unchanged. HTTP 202 means the backend durably accepted the receipt for later processing; `EVENT_DELIVERED` describes that acknowledgement, not completion of attribution, reporting or partner postbacks. HTTP 429/5xx/network failures retain the same event IDs for retry.
 
 ATTRACK links open your app and hand it the parameters defined for the link.
 
@@ -144,7 +156,7 @@ A deferred link is delivered again on every launch until you acknowledge it:
 - Call `Tracker.acknowledgeDeepLink(context, data)` only after a **deferred** link
   (`data.isDeferred == true`) was routed successfully. Direct links need no
   acknowledgement.
-- `false` means the acknowledgement was not saved; the link will be delivered
+- `false` means the acknowledgement task was not admitted; the link will be delivered
   again.
 - Use `data.handoffId` as a stable key: if you have already navigated for that
   handoff, do not navigate again, just acknowledge.

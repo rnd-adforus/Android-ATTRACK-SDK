@@ -188,7 +188,7 @@ private fun EventsTab(modifier: Modifier) {
         item {
             Section("Send an event") {
                 Text(
-                    "EVENT_QUEUED means it is safely on disk. EVENT_DELIVERED arrives in the Log once the server accepts it.",
+                    "EVENT_ACCEPTED is in memory. EVENT_QUEUED confirms the disk write. EVENT_DELIVERED confirms server acceptance.",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Spacer(Modifier.padding(4.dp))

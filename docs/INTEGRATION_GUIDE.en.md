@@ -1,5 +1,17 @@
 # Add ATTRACK to your Android app
 
+## Version 1.1.0 threading and acceptance contract
+
+Initialization schedules background setup and returns without waiting for storage, package-manager calls, or network access. `INITIALIZATION_STARTED` confirms admission; later setup failures and `INITIALIZED` arrive through the result listener. Events called immediately after initialization wait behind setup in the same bounded storage queue.
+
+`logEvent` returns a transaction ID after in-memory admission. `logEventWithResult` returns `EVENT_ACCEPTED` after bounded parameter and cached-schema checks. Neither return value confirms persistence. The listener's later `EVENT_QUEUED` confirms the outbox write; `QUEUE_WRITE_FAILED` reports a failed write with the same transaction ID. Process exit before the write can lose an accepted event. There are 128 waiting storage tasks; overload is rejected without blocking or executing disk work on the caller. Parameters are copied with a 16 KiB encoded limit, depth 12 and 1024 visited values; supported values are null, strings, booleans, standard primitive numbers, maps and lists. Arbitrary object conversion is rejected.
+
+Result listeners run on a separate SDK thread. They must dispatch UI updates to main. A slow listener can fill the 64-slot notification queue; subsequent notifications are dropped while persistence and delivery continue. Listener notifications are best-effort diagnostics, not a durable event ledger.
+
+`acknowledgeDeepLink` is nonblocking: `true` means the background acknowledgement task was admitted, not that its write completed. A write failure or process exit before completion can redeliver the handoff; route idempotently using `handoffId`. Deep-link result callbacks still run on main.
+
+The wire contract is unchanged. HTTP 202 means the backend durably accepted the receipt for later processing; `EVENT_DELIVERED` describes that acknowledgement, not completion of attribution, reporting or partner postbacks. HTTP 429/5xx/network failures retain the same event IDs for retry.
+
 ATTRACK tracks installs automatically and lets you send your app's events. Basic integration takes one dependency and one initialization call. Deep links and result listeners are optional.
 
 [한국어](INTEGRATION_GUIDE.md)
@@ -30,7 +42,7 @@ Then add this line in your app module's **build.gradle.kts** and sync Gradle:
 
 ```kotlin
 dependencies {
-    implementation("com.adforus.sdk:attrack:1.0.0")
+    implementation("com.adforus.sdk:attrack:1.1.0")
 }
 ```
 
@@ -96,13 +108,13 @@ Tracker.setResultListener { result ->
 Tracker.initialize(this, "YOUR_APP_ID", "YOUR_CLIENT_KEY")
 ```
 
-The two calls are separate. **Do not put `initialize()` inside the listener.** Callbacks run on the thread producing the result: local checks can run on your calling thread; network results run on the SDK worker. Remove the listener with `Tracker.setResultListener(null)`.
+The two calls are separate. **Do not put `initialize()` inside the listener.** Result callbacks run on the SDK result thread. Remove the listener with `Tracker.setResultListener(null)`.
 
-`initializeWithResult(...)` is an alternative if you need an immediate validation result. `INITIALIZATION_STARTED` means local startup succeeded; `INITIALIZED` arrives later if the server accepts initialization. `logEventWithResult(...)` adds strict validation against the cached event schema; use it when you deliberately need that check. The simple calls above are sufficient for normal integration.
+`initializeWithResult(...)` is an alternative if you need an immediate validation result. `INITIALIZATION_STARTED` means background setup was accepted; `INITIALIZED` arrives later if the server accepts initialization. `logEventWithResult(...)` adds strict validation against the cached event schema; use it when you deliberately need that check. The simple calls above are sufficient for normal integration.
 
 ## Optional: deep links
 
-Follow the [deep-link guide](DEEP_LINKS.en.md) if links should open a particular screen in your app. It explains the manifest entry and `Tracker.handleDeepLink(...)`. Deep-link setup is separate from install and event tracking.
+Follow the [deep-link guide](DEEP_LINKS.md) if links should open a particular screen in your app. It explains the manifest entry and `Tracker.handleDeepLink(...)`. Deep-link setup is separate from install and event tracking.
 
 ## Java
 

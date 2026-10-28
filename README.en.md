@@ -24,7 +24,7 @@ Then add this line in your app module's **build.gradle.kts** and sync Gradle:
 
 ```kotlin
 dependencies {
-    implementation("com.adforus.sdk:attrack:1.0.0")
+    implementation("com.adforus.sdk:attrack:1.1.0")
 }
 ```
 
@@ -76,7 +76,15 @@ Tracker.logEvent("sign_up", mapOf("method" to "email"))
 
 Call this after `initialize()`; you do not need to wait for a network response. The published SDK queues it locally and the server validates it against your registered event definition. Do not send `install` yourself—the SDK owns that event.
 
-The returned transaction ID means the event was **queued**, not yet accepted by the server. A `null` return means local rejection. Check the partner console's logs to confirm server receipt. Debug-signed traffic appears in logs but is excluded from production statistics and postbacks.
+The returned transaction ID means **in-memory acceptance**, before the disk write or server receipt. A later `EVENT_QUEUED` listener result confirms persistence; process exit before that write can lose the event. A `null` return means local rejection. Check the partner console's logs to confirm server receipt. Debug-signed traffic appears in logs but is excluded from production statistics and postbacks.
+
+## 1.1.0 update
+
+Startup, storage and Install Referrer reads run in the background. Result listeners
+run on a separate SDK thread. `EVENT_ACCEPTED` means in-memory admission;
+`EVENT_QUEUED` confirms a later outbox write. Overload is rejected rather than
+blocking the app. Deep-link acknowledgement returns background-task admission.
+See the [migration details](docs/INTEGRATION_GUIDE.en.md#version-110-threading-and-acceptance-contract).
 
 ## Next steps
 
